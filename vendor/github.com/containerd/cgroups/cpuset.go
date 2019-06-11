@@ -70,7 +70,7 @@ func (c *cpusetController) Create(path string, resources *specs.LinuxResources) 
 		} {
 			if t.value != "" {
 				if err := ioutil.WriteFile(
-					filepath.Join(c.Path(path), fmt.Sprintf("cpuset.%s", t.name)),
+					filepath.Join(c.Path(path), c.getPrefix(path)+t.name),
 					[]byte(t.value),
 					defaultFilePerm,
 				); err != nil {
@@ -86,11 +86,19 @@ func (c *cpusetController) Update(path string, resources *specs.LinuxResources) 
 	return c.Create(path, resources)
 }
 
+func (c *cpusetController) getPrefix(path string) string {
+	if _, err := os.Stat(filepath.Join(path, "cpus")); err == nil {
+		return ""
+	}
+	return "cpuset."
+}
+
 func (c *cpusetController) getValues(path string) (cpus []byte, mems []byte, err error) {
-	if cpus, err = ioutil.ReadFile(filepath.Join(path, "cpuset.cpus")); err != nil && !os.IsNotExist(err) {
+	prefix := c.getPrefix(path)
+	if cpus, err = ioutil.ReadFile(filepath.Join(path, prefix+"cpus")); err != nil && !os.IsNotExist(err) {
 		return
 	}
-	if mems, err = ioutil.ReadFile(filepath.Join(path, "cpuset.mems")); err != nil && !os.IsNotExist(err) {
+	if mems, err = ioutil.ReadFile(filepath.Join(path, prefix+"mems")); err != nil && !os.IsNotExist(err) {
 		return
 	}
 	return cpus, mems, nil
@@ -133,9 +141,10 @@ func (c *cpusetController) copyIfNeeded(current, parent string) error {
 	if parentCpus, parentMems, err = c.getValues(parent); err != nil {
 		return err
 	}
+	prefix := c.getPrefix(parent)
 	if isEmpty(currentCpus) {
 		if err := ioutil.WriteFile(
-			filepath.Join(current, "cpuset.cpus"),
+			filepath.Join(current, prefix+"cpus"),
 			parentCpus,
 			defaultFilePerm,
 		); err != nil {
@@ -144,7 +153,7 @@ func (c *cpusetController) copyIfNeeded(current, parent string) error {
 	}
 	if isEmpty(currentMems) {
 		if err := ioutil.WriteFile(
-			filepath.Join(current, "cpuset.mems"),
+			filepath.Join(current, prefix+"mems"),
 			parentMems,
 			defaultFilePerm,
 		); err != nil {

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -196,13 +197,14 @@ func applyCPUSetCgroupInfo(info *SysInfo, cgMounts map[string]string) []string {
 
 	var err error
 
-	cpus, err := ioutil.ReadFile(path.Join(mountPoint, "cpuset.cpus"))
+	prefix := getPrefix(mountPoint)
+	cpus, err := ioutil.ReadFile(path.Join(mountPoint, prefix+"cpus"))
 	if err != nil {
 		return warnings
 	}
 	info.Cpus = strings.TrimSpace(string(cpus))
 
-	mems, err := ioutil.ReadFile(path.Join(mountPoint, "cpuset.mems"))
+	mems, err := ioutil.ReadFile(path.Join(mountPoint, prefix+"mems"))
 	if err != nil {
 		return warnings
 	}
@@ -276,6 +278,13 @@ func applySeccompInfo(info *SysInfo, _ map[string]string) []string {
 func cgroupEnabled(mountPoint, name string) bool {
 	_, err := os.Stat(path.Join(mountPoint, name))
 	return err == nil
+}
+
+func getPrefix(path string) string {
+	if _, err := os.Stat(filepath.Join(path, "cpus")); err == nil {
+		return ""
+	}
+	return "cpuset."
 }
 
 func readProcBool(path string) bool {
